@@ -82,17 +82,17 @@ export const PhysicalLayout = ({
   onPositionClicked,
   ...props
 }: PhysicalLayoutProps) => {
-  const innerRef = useRef<HTMLDivElement>(null);
-  const outerRef = useRef<HTMLDivElement>(null);
+  const keyboardRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
   useLayoutEffect(() => {
-    const element = innerRef.current;
-    const outer = outerRef.current;
+    const element = keyboardRef.current;
+    const outer = wrapperRef.current;
     if (!element || !outer) return;
 
-    // The outer wrapper's parent is the actual available container (from Keyboard.tsx).
-    // We must observe this rather than the outer wrapper itself to avoid a resize loop.
+    // The wrapper's parent is the actual available container (from Keyboard.tsx).
+    // We must observe this rather than the wrapper itself to avoid a resize loop.
     const availableContainer = outer.parentElement;
     if (!availableContainer) return;
 
@@ -115,10 +115,10 @@ export const PhysicalLayout = ({
       calculateScale();
     });
 
-    // Watch the available container (for window/layout resizes) and the inner
-    // keyboard element (for natural-size changes when a different keyboard
-    // is connected). Do NOT observe the outer wrapper — its size depends on
-    // `scale`, so observing it would create a feedback loop.
+    // Watch the available container (for window/layout resizes) and the natural-
+    // sized keyboard element (for size changes when a different keyboard is
+    // connected). Do NOT observe the wrapper div — its size depends on `scale`,
+    // so observing it would create a feedback loop.
     resizeObserver.observe(element);
     resizeObserver.observe(availableContainer);
 
@@ -158,7 +158,7 @@ export const PhysicalLayout = ({
     // element would appear to overflow its container while the layout space stays
     // at the natural (unscaled) size, causing visible content to be clipped.
     <div
-      ref={outerRef}
+      ref={wrapperRef}
       style={{
         width: naturalWidth * scale + "px",
         height: naturalHeight * scale + "px",
@@ -166,7 +166,7 @@ export const PhysicalLayout = ({
       {...props}
     >
       <div
-        ref={innerRef}
+        ref={keyboardRef}
         className="relative"
         style={{
           height: naturalHeight + "px",
