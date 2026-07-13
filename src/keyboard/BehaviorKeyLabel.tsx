@@ -81,12 +81,26 @@ function getParamDescriptions(
  * - Primary label represents param1 (e.g. the tap key for mod-tap).
  * - Footer label represents param2 when the behavior uses it (e.g. the hold
  *   modifier for mod-tap, or the hold layer for layer-tap).
+ *
+ * When behavior metadata is not yet available, falls back to rendering param1
+ * as a HID usage label (matching the original always-visible rendering).
  */
 export function getBehaviorKeyLabel(
   binding: BehaviorBinding,
   behavior: GetBehaviorDetailsResponse | undefined,
   layers: { id: number; name: string }[]
 ): { primary: React.ReactNode; footer: React.ReactNode } {
+  // Fallback when behavior details haven't loaded yet: mirror the original
+  // HidUsageLabel rendering so every key always shows its param1 label.
+  if (!behavior) {
+    return {
+      primary: binding.param1 !== 0 ? (
+        <HidUsageLabel hid_usage={binding.param1} />
+      ) : null,
+      footer: null,
+    };
+  }
+
   const { param1Descs, param2Descs } = getParamDescriptions(
     behavior,
     binding.param1
@@ -101,7 +115,10 @@ export function getBehaviorKeyLabel(
       />
     ) : null;
 
-  const hasParam2 = param2Descs.length > 0 && binding.param2 !== 0;
+  const hasParam2 =
+    param2Descs.length > 0 &&
+    binding.param2 !== undefined &&
+    binding.param2 !== 0;
   const footer = hasParam2 ? (
     <ParamLabel
       value={binding.param2}
