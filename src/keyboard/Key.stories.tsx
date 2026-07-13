@@ -43,6 +43,16 @@ export const Selected: Story = {
   },
 };
 
+export const WithFooter: Story = {
+  args: {
+    width: 1,
+    height: 1,
+    header: "Mod Tap",
+    children: [<span>A</span>],
+    footer: <span>LSHIFT</span>,
+  },
+};
+
 export const Large: Story = {
   args: {
     width: 2,

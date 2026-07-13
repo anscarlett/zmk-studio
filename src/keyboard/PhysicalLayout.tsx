@@ -2,6 +2,7 @@ import {
   CSSProperties,
   PropsWithChildren,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -10,6 +11,7 @@ import { Key } from "./Key";
 export type KeyPosition = PropsWithChildren<{
   id: string;
   header?: string;
+  footer?: React.ReactNode;
   width: number;
   height: number;
   x: number;
@@ -45,6 +47,10 @@ interface PhysicalLayoutPositionLocation {
   ry?: number;
 }
 
+// Fraction of the smaller viewport dimension used as padding around the
+// keyboard in auto-fit mode.
+const AUTO_MODE_PADDING_RATIO = 0.05;
+
 function scalePosition(
   { x, y, r, rx, ry }: PhysicalLayoutPositionLocation,
   oneU: number,
@@ -79,61 +85,65 @@ export const PhysicalLayout = ({
   selectedPosition,
   oneU = 48,
   onPositionClicked,
-  ...props
+  zoom,
 }: PhysicalLayoutProps) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const keyboardRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(typeof zoom === "number" ? zoom : 1);
+
+  // Natural dimensions using the base oneU — memoized so the effect only
+  // re-runs when positions or the base oneU truly change.
+  const rightMost = useMemo(
+    () => positions.map((k) => k.x + k.width).reduce((a, b) => Math.max(a, b), 0),
+    [positions],
+  );
+  const bottomMost = useMemo(
+    () => positions.map((k) => k.y + k.height).reduce((a, b) => Math.max(a, b), 0),
+    [positions],
+  );
+  const naturalWidth = useMemo(() => rightMost * oneU, [rightMost, oneU]);
+  const naturalHeight = useMemo(() => bottomMost * oneU, [bottomMost, oneU]);
 
   useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
+    if (zoom !== "auto") {
+      setScale(zoom || 1);
+      return;
+    }
 
-    const parent = element.parentElement;
-    if (!parent) return;
+    // Observe the keyboard's parent container (the grid cell in Keyboard.tsx),
+    // not the keyboard div itself — the keyboard div's size changes with scale,
+    // so observing it would create a resize feedback loop.
+    const container = keyboardRef.current?.parentElement;
+    if (!container) return;
 
     const calculateScale = () => {
-      if (props.zoom === "auto") {
-        const padding = Math.min(window.innerWidth, window.innerHeight) * 0.05; // Padding when in auto mode
-        const newScale = Math.min(
-          parent.clientWidth / (element.clientWidth + 2 * padding),
-          parent.clientHeight / (element.clientHeight + 2 * padding),
-        );
-        setScale(newScale);
-      } else {
-        setScale(props.zoom || 1);
-      }
+      const padding = Math.min(window.innerWidth, window.innerHeight) * AUTO_MODE_PADDING_RATIO;
+      setScale(
+        Math.min(
+          container.clientWidth / (naturalWidth + 2 * padding),
+          container.clientHeight / (naturalHeight + 2 * padding),
+        ),
+      );
     };
 
-    calculateScale(); // Initial calculation
+    calculateScale();
+    const observer = new ResizeObserver(calculateScale);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [zoom, naturalWidth, naturalHeight]);
 
-    const resizeObserver = new ResizeObserver(() => {
-      calculateScale();
-    });
-
-    resizeObserver.observe(element);
-    resizeObserver.observe(parent);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [props.zoom]);
-
-  // TODO: Add a bit of padding for rotation when supported
-  let rightMost = positions
-    .map((k) => k.x + k.width)
-    .reduce((a, b) => Math.max(a, b), 0);
-  let bottomMost = positions
-    .map((k) => k.y + k.height)
-    .reduce((a, b) => Math.max(a, b), 0);
+  // Scale oneU directly so the keyboard div's actual DOM size equals its
+  // visual size — no CSS transform needed. This means the keyboard can be
+  // centered naturally (auto mode) or made scrollable (fixed zoom > 1)
+  // without any transform/layout mismatch.
+  const effectiveOneU = oneU * scale;
 
   const positionItems = positions.map((p, idx) => (
-    <div className="absolute hover:z-10" style={scalePosition(p, oneU)}>
+    <div key={p.id} className="absolute hover:z-10" style={scalePosition(p, effectiveOneU)}>
       <div
-        key={p.id}
         onClick={() => onPositionClicked?.(idx)}
       >
         <Key
-          oneU={oneU}
+          oneU={effectiveOneU}
           selected={idx === selectedPosition}
           {...p}
         />
@@ -141,17 +151,16 @@ export const PhysicalLayout = ({
     </div>
   ));
 
+  // TODO: Add a bit of padding for rotation when supported
   return (
     <div
       className="relative"
+      ref={keyboardRef}
       style={{
-        height: bottomMost * oneU + "px",
-        width: rightMost * oneU + "px",
-        transform: `scale(${scale})`,
+        height: bottomMost * effectiveOneU + "px",
+        width: rightMost * effectiveOneU + "px",
         transformStyle: "preserve-3d",
       }}
-      ref={ref}
-      {...props}
     >
       {positionItems}
     </div>

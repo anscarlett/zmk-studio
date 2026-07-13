@@ -7,6 +7,7 @@ interface KeyProps {
   height: number;
   oneU: number;
   header?: string;
+  footer?: React.ReactNode;
   onClick?: () => void;
 }
 
@@ -40,6 +41,7 @@ export const Key = ({
   height,
   oneU,
   header,
+  footer,
   onClick,
   children,
 }: PropsWithChildren<KeyProps>) => {
@@ -56,8 +58,13 @@ export const Key = ({
       }}
       onClick={onClick}
     >
-      <div className={`absolute text-xs ${selected ? "text-primary-content" : "z1text-base-content"} opacity-80 top-1 text-nowrap left-1/2 font-light -translate-x-1/2 text-center`}>{shortenHeader(header)}</div>
+      <div className={`absolute text-xs ${selected ? "text-primary-content" : "text-base-content"} opacity-80 top-1 text-nowrap left-1/2 font-light -translate-x-1/2 text-center`}>{shortenHeader(header)}</div>
       {children}
+      {footer && (
+        <div className={`absolute text-xs ${selected ? "text-primary-content" : "text-base-content"} opacity-70 bottom-1 left-1/2 -translate-x-1/2 text-nowrap text-center`}>
+          {footer}
+        </div>
+      )}
     </button>
   );
 };
