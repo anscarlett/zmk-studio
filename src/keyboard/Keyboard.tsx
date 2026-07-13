@@ -530,7 +530,7 @@ export default function Keyboard() {
         )}
       </div>
       {layouts && keymap && behaviors && (
-        <div className="p-2 col-start-2 row-start-1 grid items-center justify-center relative min-w-0">
+        <div className={`p-2 col-start-2 row-start-1 relative min-w-0 ${keymapScale === "auto" ? "grid items-center justify-center overflow-hidden" : "overflow-auto"}`}>
           <KeymapComp
             keymap={keymap}
             layout={layouts[selectedPhysicalLayoutIndex]}

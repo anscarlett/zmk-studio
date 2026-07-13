@@ -82,22 +82,26 @@ export const PhysicalLayout = ({
   onPositionClicked,
   ...props
 }: PhysicalLayoutProps) => {
-  const ref = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
   useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
+    const element = innerRef.current;
+    const outer = outerRef.current;
+    if (!element || !outer) return;
 
-    const parent = element.parentElement;
-    if (!parent) return;
+    // The outer wrapper's parent is the actual available container (from Keyboard.tsx).
+    // We must observe this rather than the outer wrapper itself to avoid a resize loop.
+    const availableContainer = outer.parentElement;
+    if (!availableContainer) return;
 
     const calculateScale = () => {
       if (props.zoom === "auto") {
         const padding = Math.min(window.innerWidth, window.innerHeight) * 0.05; // Padding when in auto mode
         const newScale = Math.min(
-          parent.clientWidth / (element.clientWidth + 2 * padding),
-          parent.clientHeight / (element.clientHeight + 2 * padding),
+          availableContainer.clientWidth / (element.clientWidth + 2 * padding),
+          availableContainer.clientHeight / (element.clientHeight + 2 * padding),
         );
         setScale(newScale);
       } else {
@@ -111,8 +115,12 @@ export const PhysicalLayout = ({
       calculateScale();
     });
 
+    // Watch the available container (for window/layout resizes) and the inner
+    // keyboard element (for natural-size changes when a different keyboard
+    // is connected). Do NOT observe the outer wrapper — its size depends on
+    // `scale`, so observing it would create a feedback loop.
     resizeObserver.observe(element);
-    resizeObserver.observe(parent);
+    resizeObserver.observe(availableContainer);
 
     return () => {
       resizeObserver.disconnect();
@@ -126,6 +134,9 @@ export const PhysicalLayout = ({
   let bottomMost = positions
     .map((k) => k.y + k.height)
     .reduce((a, b) => Math.max(a, b), 0);
+
+  const naturalWidth = rightMost * oneU;
+  const naturalHeight = bottomMost * oneU;
 
   const positionItems = positions.map((p, idx) => (
     <div key={p.id} className="absolute hover:z-10" style={scalePosition(p, oneU)}>
@@ -142,18 +153,31 @@ export const PhysicalLayout = ({
   ));
 
   return (
+    // Outer wrapper reserves the correct layout space for the scaled keyboard.
+    // Without this, CSS transform: scale() would not affect layout flow and the
+    // element would appear to overflow its container while the layout space stays
+    // at the natural (unscaled) size, causing visible content to be clipped.
     <div
-      className="relative"
+      ref={outerRef}
       style={{
-        height: bottomMost * oneU + "px",
-        width: rightMost * oneU + "px",
-        transform: `scale(${scale})`,
-        transformStyle: "preserve-3d",
+        width: naturalWidth * scale + "px",
+        height: naturalHeight * scale + "px",
       }}
-      ref={ref}
       {...props}
     >
-      {positionItems}
+      <div
+        ref={innerRef}
+        className="relative"
+        style={{
+          height: naturalHeight + "px",
+          width: naturalWidth + "px",
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          transformStyle: "preserve-3d",
+        }}
+      >
+        {positionItems}
+      </div>
     </div>
   );
 };
