@@ -535,9 +535,9 @@ export default function Keyboard() {
             keymap={keymap}
             layout={layouts[selectedPhysicalLayoutIndex]}
             behaviors={behaviors}
-            layers={keymap.layers.map(({ id, name }, li) => ({
+            layers={keymap.layers.map(({ id, name }, layerIndex) => ({
               id,
-              name: name || li.toLocaleString(),
+              name: name || layerIndex.toLocaleString(),
             }))}
             scale={keymapScale}
             selectedLayerIndex={selectedLayerIndex}
