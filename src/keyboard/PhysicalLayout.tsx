@@ -2,6 +2,7 @@ import {
   CSSProperties,
   PropsWithChildren,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -46,6 +47,10 @@ interface PhysicalLayoutPositionLocation {
   ry?: number;
 }
 
+// Fraction of the smaller viewport dimension used as padding around the
+// keyboard in auto-fit mode.
+const AUTO_MODE_PADDING_RATIO = 0.05;
+
 function scalePosition(
   { x, y, r, rx, ry }: PhysicalLayoutPositionLocation,
   oneU: number,
@@ -85,16 +90,18 @@ export const PhysicalLayout = ({
   const keyboardRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(typeof zoom === "number" ? zoom : 1);
 
-  // Natural dimensions using the base oneU — these are constants used for
-  // the auto-scale calculation, independent of the current scale value.
-  const rightMost = positions
-    .map((k) => k.x + k.width)
-    .reduce((a, b) => Math.max(a, b), 0);
-  const bottomMost = positions
-    .map((k) => k.y + k.height)
-    .reduce((a, b) => Math.max(a, b), 0);
-  const naturalWidth = rightMost * oneU;
-  const naturalHeight = bottomMost * oneU;
+  // Natural dimensions using the base oneU — memoized so the effect only
+  // re-runs when positions or the base oneU truly change.
+  const rightMost = useMemo(
+    () => positions.map((k) => k.x + k.width).reduce((a, b) => Math.max(a, b), 0),
+    [positions],
+  );
+  const bottomMost = useMemo(
+    () => positions.map((k) => k.y + k.height).reduce((a, b) => Math.max(a, b), 0),
+    [positions],
+  );
+  const naturalWidth = useMemo(() => rightMost * oneU, [rightMost, oneU]);
+  const naturalHeight = useMemo(() => bottomMost * oneU, [bottomMost, oneU]);
 
   useLayoutEffect(() => {
     if (zoom !== "auto") {
@@ -109,7 +116,7 @@ export const PhysicalLayout = ({
     if (!container) return;
 
     const calculateScale = () => {
-      const padding = Math.min(window.innerWidth, window.innerHeight) * 0.05;
+      const padding = Math.min(window.innerWidth, window.innerHeight) * AUTO_MODE_PADDING_RATIO;
       setScale(
         Math.min(
           container.clientWidth / (naturalWidth + 2 * padding),
