@@ -10,6 +10,7 @@ import { Key } from "./Key";
 export type KeyPosition = PropsWithChildren<{
   id: string;
   header?: string;
+  footer?: React.ReactNode;
   width: number;
   height: number;
   x: number;
