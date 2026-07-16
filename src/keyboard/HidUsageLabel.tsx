@@ -24,10 +24,13 @@ export const HidUsageLabel = ({ hid_usage }: HidUsageLabelProps) => {
   return (
     <span
       className="@[10em]:before:content-[attr(data-long-content)] @[6em]:before:content-[attr(data-med-content)] before:content-[attr(aria-label)]"
-      aria-label={modPrefix + remove_prefix(labels.short)}
-      data-med-content={modPrefix + remove_prefix(labels.med || labels.short)}
+      aria-label={modPrefix + (remove_prefix(labels.short) ?? "")}
+      data-med-content={
+        modPrefix + (remove_prefix(labels.med || labels.short) ?? "")
+      }
       data-long-content={
-        modPrefix + remove_prefix(labels.long || labels.med || labels.short)
+        modPrefix +
+        (remove_prefix(labels.long || labels.med || labels.short) ?? "")
       }
     />
   );
