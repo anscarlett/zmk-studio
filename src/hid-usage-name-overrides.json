@@ -19,7 +19,11 @@
     "47": { "short": "{" },
     "48": { "short": "}" },
     "49": { "short": "\\" },
-    "50": { "short": "NUHS", "long": "NonUS Hash" },
+    "50": {
+        "short": "#",
+        "med": "Hash",
+        "long": "Non-US Hash"
+    },
     "51": { "short": ";" },
     "52": { "short": "'" },
     "53": { "short": "`" },

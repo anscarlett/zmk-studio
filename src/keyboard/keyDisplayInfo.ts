@@ -9,7 +9,7 @@ import {
   hid_usage_get_labels,
   hid_usage_page_and_id_from_usage,
 } from "../hid-usages";
-import { resolveModifierLabel, mask_mods } from "../behaviors/modifiers";
+import { resolveModifierLabel, mask_mods, resolveShiftedChar } from "../behaviors/modifiers";
 import { LucideIcon } from "lucide-react";
 import { getBehaviorIcon } from "./behaviorIcons";
 
@@ -40,6 +40,27 @@ const LAYER_COLORS = [
   "#06b6d420", // cyan
 ];
 
+const MOD_SHORT_NAMES: Record<string, string> = {
+  "L Shift": "L Sft",
+  "R Shift": "R Sft",
+  "L Ctrl": "L Ctrl",
+  "R Ctrl": "R Ctrl",
+  "L Alt": "L Alt",
+  "R Alt": "R Alt",
+  "L GUI": "L GUI",
+  "R GUI": "R GUI",
+};
+
+function shortenModLabel(label: string): string {
+  return label
+    .split("+")
+    .map((part) => {
+      const trimmed = part.trim();
+      return MOD_SHORT_NAMES[trimmed] || trimmed;
+    })
+    .join("+");
+}
+
 export interface KeyDisplayFormatters {
   /**
    * CUSTOMIZATION POINT: Override the full tooltip string.
@@ -69,6 +90,9 @@ function removePrefix(s?: string) {
 }
 
 function resolveHidLabel(hidUsage: number): string {
+  const shifted = resolveShiftedChar(hidUsage);
+  if (shifted) return shifted;
+
   const [page, id] = hid_usage_page_and_id_from_usage(hidUsage);
   const labels = hid_usage_get_labels(page & 0xff, id);
   return removePrefix(labels.short || labels.med || labels.long) || "???";
@@ -174,15 +198,16 @@ export function resolveKeyDisplayInfo(
   layers: LayerInfo[],
   formatters?: KeyDisplayFormatters,
 ): KeyDisplayInfo {
-  const behaviorName = behavior?.displayName || "Unknown";
+  let behaviorName = behavior?.displayName || "Unknown";
   const tapLabel = resolveHidLabel(binding.param1);
-  const icon = getBehaviorIcon(behaviorName);
+  let icon = getBehaviorIcon(behaviorName);
 
   let holdLabel = "";
+  let matchingSet: BehaviorBindingParametersSet | undefined;
 
   if (binding.param2 && behavior?.metadata) {
     const layerIds = layers.map((l) => l.id);
-    const matchingSet = findMatchingParamSet(
+    matchingSet = findMatchingParamSet(
       behavior.metadata,
       binding.param1,
       layerIds,
@@ -203,19 +228,38 @@ export function resolveKeyDisplayInfo(
     }
   }
 
+  // Customize header for keys with layer-tap or modifier hold actions
+  const bn = behaviorName.toLowerCase();
+  if (bn.includes("layer-tap") || bn.startsWith("lt")) {
+    const layer = layers.find((l) => l.id === binding.param2);
+    behaviorName = `LT-${layer?.name || binding.param2}`;
+    icon = undefined;
+  } else if (bn.includes("homerow") || bn.includes("nomerow")) {
+    const modLabel = resolveModifierLabel(binding.param2);
+    if (modLabel) {
+      behaviorName = shortenModLabel(modLabel);
+      icon = undefined;
+    }
+  }
+
   const formatTooltip = formatters?.formatTooltip || defaultTooltipFormatter;
   const tooltipText = formatTooltip({ behaviorName, tapLabel, holdLabel });
 
-  // Resolve layer color from param2 layer index
+  // Resolve layer color
   let layerColor: string | undefined;
-  if (holdLabel && binding.param2 && behavior?.metadata) {
+  if (binding.param2 && (behavior?.displayName?.toLowerCase().includes("layer-tap") || behavior?.displayName?.toLowerCase().startsWith("lt"))) {
+    const layerIndex = layers.findIndex((l) => l.id === binding.param2);
+    if (layerIndex >= 0) {
+      layerColor = LAYER_COLORS[layerIndex % LAYER_COLORS.length];
+    }
+  } else if (holdLabel && binding.param2 && behavior?.metadata) {
     const layerIds = layers.map((l) => l.id);
-    const matchingSet = findMatchingParamSet(
+    const layerMatchingSet = findMatchingParamSet(
       behavior.metadata,
       binding.param1,
       layerIds,
     );
-    const firstParam2 = matchingSet?.param2?.[0];
+    const firstParam2 = layerMatchingSet?.param2?.[0];
     if (firstParam2?.layerId) {
       const layerIndex = layers.findIndex((l) => l.id === binding.param2);
       if (layerIndex >= 0) {

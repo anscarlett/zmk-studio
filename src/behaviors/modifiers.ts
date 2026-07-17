@@ -64,3 +64,41 @@ export function resolveModifierPrefix(flags: number): string {
     .map((m) => mod_symbols[m])
     .join("");
 }
+
+const SHIFTED_CHAR_MAP: Record<number, string> = {
+  0x1e: "!",
+  0x1f: "@",
+  0x20: "#",
+  0x21: "$",
+  0x22: "%",
+  0x23: "^",
+  0x24: "&",
+  0x25: "*",
+  0x26: "(",
+  0x27: ")",
+  0x2d: "_",
+  0x2e: "+",
+  0x2f: "{",
+  0x30: "}",
+  0x31: "|",
+  0x33: ":",
+  0x34: '"',
+  0x35: "~",
+  0x36: "<",
+  0x37: ">",
+  0x38: "?",
+};
+
+export function resolveShiftedChar(hidUsage: number): string | null {
+  const flags = (hidUsage >> 24) & 0xff;
+  const id = hidUsage & 0xffff;
+  if (flags & Mods.LeftShift) {
+    return SHIFTED_CHAR_MAP[id] || null;
+  }
+  return null;
+}
+
+export function isShiftModifier(hidUsage: number): boolean {
+  const flags = (hidUsage >> 24) & 0xff;
+  return !!(flags & Mods.LeftShift);
+}
