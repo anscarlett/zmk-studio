@@ -82,7 +82,7 @@ export const Keymap = ({
       r: (k.r || 0) / 100.0,
       rx: (k.rx || 0) / 100.0,
       ry: (k.ry || 0) / 100.0,
-      children: <HidUsageLabel hid_usage={binding.param1} />,
+      children: <HidUsageLabel hid_usage={displayInfo.centerHidUsage} />,
     };
   });
 

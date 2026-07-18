@@ -25,6 +25,7 @@ export interface KeyDisplayInfo {
   icon: LucideIcon | undefined;
   tooltipText: string;
   behaviorName: string;
+  centerHidUsage: number;
 }
 
 // Subtle background tints indexed by layer position.
@@ -40,26 +41,6 @@ const LAYER_COLORS = [
   "#06b6d420", // cyan
 ];
 
-const MOD_SHORT_NAMES: Record<string, string> = {
-  "L Shift": "L Sft",
-  "R Shift": "R Sft",
-  "L Ctrl": "L Ctrl",
-  "R Ctrl": "R Ctrl",
-  "L Alt": "L Alt",
-  "R Alt": "R Alt",
-  "L GUI": "L GUI",
-  "R GUI": "R GUI",
-};
-
-function shortenModLabel(label: string): string {
-  return label
-    .split("+")
-    .map((part) => {
-      const trimmed = part.trim();
-      return MOD_SHORT_NAMES[trimmed] || trimmed;
-    })
-    .join("+");
-}
 
 export interface KeyDisplayFormatters {
   /**
@@ -199,11 +180,12 @@ export function resolveKeyDisplayInfo(
   formatters?: KeyDisplayFormatters,
 ): KeyDisplayInfo {
   let behaviorName = behavior?.displayName || "Unknown";
-  const tapLabel = resolveHidLabel(binding.param1);
+  let tapLabel = resolveHidLabel(binding.param1);
   let icon = getBehaviorIcon(behaviorName);
 
   let holdLabel = "";
   let matchingSet: BehaviorBindingParametersSet | undefined;
+  let centerHidUsage = binding.param1;
 
   if (binding.param2 && behavior?.metadata) {
     const layerIds = layers.map((l) => l.id);
@@ -231,14 +213,34 @@ export function resolveKeyDisplayInfo(
   // Customize header for keys with layer-tap or modifier hold actions
   const bn = behaviorName.toLowerCase();
   if (bn.includes("layer-tap") || bn.startsWith("lt")) {
-    const layer = layers.find((l) => l.id === binding.param2);
-    behaviorName = `LT-${layer?.name || binding.param2}`;
+    // param1 = layer ID (hold action), param2 = tap HID usage
+    const layer = layers.find((l) => l.id === binding.param1);
+    behaviorName = `LT-${layer?.name || `Layer ${binding.param1}`}`;
+    centerHidUsage = binding.param2;
+    tapLabel = resolveHidLabel(binding.param2);
     icon = undefined;
+    holdLabel = "";
   } else if (bn.includes("homerow") || bn.includes("nomerow")) {
-    const modLabel = resolveModifierLabel(binding.param2);
-    if (modLabel) {
-      behaviorName = shortenModLabel(modLabel);
+    // param1 = modifier HID usage (hold action), e.g. 0x700E0 = Left Control
+    // param2 = tap HID usage (tap action), e.g. 0x70016 = "H"
+    const usageId = binding.param1 & 0xffff;
+    const HID_MOD_NAMES: Record<number, string> = {
+      0xe0: "LCtrl",
+      0xe1: "LShift",
+      0xe2: "LAlt",
+      0xe3: "LGUI",
+      0xe4: "RCtrl",
+      0xe5: "RShift",
+      0xe6: "RAlt",
+      0xe7: "RGUI",
+    };
+    const modName = HID_MOD_NAMES[usageId];
+    if (modName) {
+      behaviorName = `MT-${modName}`;
+      centerHidUsage = binding.param2;
+      tapLabel = resolveHidLabel(binding.param2);
       icon = undefined;
+      holdLabel = "";
     }
   }
 
@@ -247,8 +249,8 @@ export function resolveKeyDisplayInfo(
 
   // Resolve layer color
   let layerColor: string | undefined;
-  if (binding.param2 && (behavior?.displayName?.toLowerCase().includes("layer-tap") || behavior?.displayName?.toLowerCase().startsWith("lt"))) {
-    const layerIndex = layers.findIndex((l) => l.id === binding.param2);
+  if (bn.includes("layer-tap") || bn.startsWith("lt")) {
+    const layerIndex = layers.findIndex((l) => l.id === binding.param1);
     if (layerIndex >= 0) {
       layerColor = LAYER_COLORS[layerIndex % LAYER_COLORS.length];
     }
@@ -275,5 +277,6 @@ export function resolveKeyDisplayInfo(
     icon,
     tooltipText,
     behaviorName,
+    centerHidUsage,
   };
 }
